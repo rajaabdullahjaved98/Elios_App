@@ -1,0 +1,2 @@
+D:/Elios App/Elios/elios/android/app/.cxx/Debug/4n332g6p/x86/CMakeFiles/edit_cache.dir
+D:/Elios App/Elios/elios/android/app/.cxx/Debug/4n332g6p/x86/CMakeFiles/rebuild_cache.dir
