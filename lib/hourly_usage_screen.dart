@@ -5,7 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class HourlyUsageScreen extends StatefulWidget {
-  const HourlyUsageScreen({Key? key}) : super(key: key);
+  const HourlyUsageScreen({super.key});
 
   @override
   State<HourlyUsageScreen> createState() => _HourlyUsageScreenState();
@@ -32,13 +32,13 @@ class _HourlyUsageScreenState extends State<HourlyUsageScreen> {
       drawer: const CustomDrawer(),
       body: Column(
         children: [
-          Align(
+          const Align(
             alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: EdgeInsets.only(right: 16.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   LegendItem(color: Colors.blue, label: "Cost (Rs)"),
                   SizedBox(width: 8),
                   LegendItem(color: Colors.white, label: "Units (kWh)"),
@@ -92,7 +92,7 @@ class _HourlyUsageScreenState extends State<HourlyUsageScreen> {
                       ),
                       barGroups: _buildBarGroups(),
                       titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
+                        leftTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
@@ -119,12 +119,12 @@ class _HourlyUsageScreenState extends State<HourlyUsageScreen> {
                             interval: 1,
                           ),
                         ),
-                        topTitles: AxisTitles(
+                        topTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: AxisTitles(
+                        rightTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
                       ),
-                      gridData: FlGridData(show: true),
+                      gridData: const FlGridData(show: true),
                       borderData: FlBorderData(show: false),
                     ),
                   ),
@@ -138,15 +138,15 @@ class _HourlyUsageScreenState extends State<HourlyUsageScreen> {
   }
 
   List<BarChartGroupData> _buildBarGroups() {
-    final double maxUnits = hourlyUnits.reduce((a, b) => a > b ? a : b);
-    final double maxCost = maxUnits * ratePerUnit;
+    //final double maxUnits = hourlyUnits.reduce((a, b) => a > b ? a : b);
+    //final double maxCost = maxUnits * ratePerUnit;
 
     const double maxAllowedHeight = 25; // Matches maxY of BarChartData
     const double minVisibleHeight = 1.5;
 
     // Scaling factors
-    final double unitScaleFactor = maxAllowedHeight / 4; // max unit = 4
-    final double costScaleFactor = maxAllowedHeight / 300; // max cost = 300
+    const double unitScaleFactor = maxAllowedHeight / 4; // max unit = 4
+    const double costScaleFactor = maxAllowedHeight / 300; // max cost = 300
 
     return List.generate(24, (index) {
       final double units = hourlyUnits[index];

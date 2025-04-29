@@ -5,7 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class DailyUsageScreen extends StatefulWidget {
-  const DailyUsageScreen({Key? key}) : super(key: key);
+  const DailyUsageScreen({super.key});
 
   @override
   State<DailyUsageScreen> createState() => _DailyUsageScreenState();
@@ -32,13 +32,13 @@ class _DailyUsageScreenState extends State<DailyUsageScreen> {
       drawer: const CustomDrawer(),
       body: Column(
         children: [
-          Align(
+          const Align(
             alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: EdgeInsets.only(right: 16.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   LegendItem(color: Colors.blue, label: "Cost (Rs)"),
                   SizedBox(width: 8),
                   LegendItem(color: Colors.white, label: "Units (kWh)"),
@@ -92,7 +92,7 @@ class _DailyUsageScreenState extends State<DailyUsageScreen> {
                       ),
                       barGroups: _buildBarGroups(),
                       titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
+                        leftTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
                         bottomTitles: AxisTitles(
                           sideTitles: SideTitles(
@@ -111,12 +111,12 @@ class _DailyUsageScreenState extends State<DailyUsageScreen> {
                             interval: 1,
                           ),
                         ),
-                        topTitles: AxisTitles(
+                        topTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: AxisTitles(
+                        rightTitles: const AxisTitles(
                             sideTitles: SideTitles(showTitles: false)),
                       ),
-                      gridData: FlGridData(show: true),
+                      gridData: const FlGridData(show: true),
                       borderData: FlBorderData(show: false),
                     ),
                   ),
@@ -130,15 +130,15 @@ class _DailyUsageScreenState extends State<DailyUsageScreen> {
   }
 
   List<BarChartGroupData> _buildBarGroups() {
-    final double maxUnits = dailyUnits.reduce((a, b) => a > b ? a : b);
-    final double maxCost = maxUnits * ratePerUnit;
+    //final double maxUnits = dailyUnits.reduce((a, b) => a > b ? a : b);
+    //final double maxCost = maxUnits * ratePerUnit;
 
     const double maxAllowedHeight = 25; // keep same as maxY
     const double minVisibleHeight = 1.5;
 
     // Scale to fit maxUnits = 96, maxCost = 5760
-    final double unitScaleFactor = maxAllowedHeight / 96;
-    final double costScaleFactor = maxAllowedHeight / 5760;
+    const double unitScaleFactor = maxAllowedHeight / 96;
+    const double costScaleFactor = maxAllowedHeight / 5760;
 
     return List.generate(31, (index) {
       final double units = dailyUnits[index];

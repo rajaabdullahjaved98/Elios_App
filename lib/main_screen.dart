@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:typed_data';
+import 'package:typed_data/typed_data.dart';
 import 'package:elios/widgets/custom_app_bar_widget.dart';
 import 'package:elios/widgets/custom_drawer.dart';
 import 'package:elios/widgets/teperature_dial.dart';
@@ -17,16 +18,118 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
+class MQTTService {
+  final MqttClient client =
+      MqttServerClient('192.168.18.104', 'flutter_client');
+  final String topic = 'esp32/ac/state';
+  final String publishTopic = 'esp32/ac/command';
+
+  MQTTService() {
+    client.logging(on: true);
+    client.keepAlivePeriod = 60;
+    client.onConnected = _onConnected;
+    client.onDisconnected = _onDisconnected;
+    client.onSubscribed = _onSubscribed;
+  }
+
+  Future<void> connect() async {
+    try {
+      await client.connect();
+      //print('Connected to MQTT broker');
+      client.subscribe(topic, MqttQos.atLeastOnce);
+
+      client.updates!.listen((List<MqttReceivedMessage<MqttMessage>> messages) {
+        final recMessage = messages[0].payload as MqttPublishMessage;
+        final Uint8Buffer buffer = recMessage.payload.message;
+        final Uint8List payload = Uint8List.fromList(buffer);
+        //print('RECEIVED DATA: $payload');
+        if (payload.length == 10) {
+          _onDataReceived?.call(_parsePayload(payload));
+        }
+      });
+    } catch (e) {
+      //print('Error: $e');
+      client.disconnect();
+    }
+  }
+
+  void _onConnected() {
+    //print('MQTT client connected');
+  }
+
+  void _onDisconnected() {
+    //print('MQTT client disconnected');
+  }
+
+  void _onSubscribed(String topic) {
+    //print('Subscribed to topic: $topic');
+  }
+
+  Function(Map<String, dynamic>)? _onDataReceived;
+
+  void onMessageReceived(Function(Map<String, dynamic>) callback) {
+    _onDataReceived = callback;
+  }
+
+  Map<String, dynamic> _parsePayload(Uint8List payload) {
+    int roomTempRaw = (payload[6] << 8) | payload[7];
+    double roomTemp = roomTempRaw / 10.0;
+    int ambientTempRaw = (payload[8] << 8) | payload[9];
+    double ambientTemp = ambientTempRaw / 10.0;
+    return {
+      'power': payload[0] == 1,
+      'temperature': payload[1],
+      'mode': payload[2],
+      'fan': payload[3],
+      'swing': payload[4] == 1,
+      'eco': payload[5] == 1,
+      'room_temp': roomTemp,
+      'ambient_temp': ambientTemp,
+    };
+  }
+
+  void sendControlPacket({
+    required bool power,
+    required int temperature,
+    required int mode,
+    required int fan,
+    required bool swing,
+    required bool eco,
+  }) {
+    Uint8List payload = Uint8List(6);
+    payload[0] = power ? 1 : 0;
+    payload[1] = temperature;
+    payload[2] = mode;
+    payload[3] = fan;
+    payload[4] = swing ? 1 : 0;
+    payload[5] = eco ? 1 : 0;
+
+    final builder = MqttClientPayloadBuilder();
+    Uint8Buffer buffer = Uint8Buffer()..addAll(payload);
+    builder.addBuffer(buffer);
+
+    if (client.connectionStatus?.state == MqttConnectionState.connected) {
+      client.publishMessage(
+          publishTopic, MqttQos.atLeastOnce, builder.payload!);
+    } else {
+      //print('MQTT client not connected. Cannot send data');
+    }
+  }
+}
+
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _temp = 16;
   int _selectedMode = -1;
   bool _isPowerOn = false;
-
-  int _fanSpeed = 0; // 0: Off, 1: Low, 2: Medium, 3: High, 4: Auto
+  int _fanSpeed = 0;
   bool _isSwingOn = false;
   bool _isEcoOn = false;
+  String _roomTemp = '0.0';
+  String _ambientTemp = '0.0';
   int _lastSelectedMode = -1;
+
+  final mqttService = MQTTService();
 
   late AnimationController _fanRotationController;
   late AnimationController _swingWiggleController;
@@ -39,6 +142,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
+    mqttService.connect();
+    mqttService.onMessageReceived(_onACStateReceived);
+
     _fanRotationController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 3000))
       ..repeat();
@@ -57,51 +164,26 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     _loadSettings();
   }
 
+  void _onACStateReceived(Map<String, dynamic> acState) {
+    //print("AC State Received: $acState");
+    setState(() {
+      _isPowerOn = acState['power'];
+      _temp = acState['temperature'];
+      _selectedMode = acState['mode'];
+      _fanSpeed = acState['fan'];
+      _isSwingOn = acState['swing'];
+      _isEcoOn = acState['eco'];
+      _roomTemp = acState['room_temp'].toString();
+      _ambientTemp = acState['ambient_temp'].toString();
+    });
+  }
+
   @override
   void dispose() {
     _fanRotationController.dispose();
     _swingWiggleController.dispose();
     _ecoGlowController.dispose();
     super.dispose();
-  }
-
-  Future<void> sendMqttMessage(String message) async {
-    final client = MqttServerClient('192.168.18.104', 'flutter_client');
-    client.port = 1883;
-    client.keepAlivePeriod = 20;
-    client.logging(on: true);
-
-    client.onDisconnected = () => print('❌ MQTT Disconnected');
-
-    final connMessage = MqttConnectMessage()
-        .withClientIdentifier('flutter_client')
-        .startClean()
-        .withWillQos(MqttQos.atLeastOnce);
-
-    client.connectionMessage = connMessage;
-
-    try {
-      print('🔌 Connecting to broker...');
-      await client.connect();
-      print('✅ Connected');
-    } catch (e) {
-      print('❌ MQTT Connection Failed: $e');
-      return;
-    }
-
-    final builder = MqttClientPayloadBuilder();
-    builder.addString(message);
-    print('📤 Sending MQTT message: $message');
-
-    client.publishMessage(
-      'ac/control',
-      MqttQos.atLeastOnce,
-      builder.payload!,
-    );
-
-    await Future.delayed(Duration(seconds: 1)); // Wait for delivery
-    print('🟢 Message sent. Disconnecting.');
-    client.disconnect(); // Clean disconnect
   }
 
   Future<void> _loadSettings() async {
@@ -114,6 +196,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _fanSpeed = prefs.getInt('fanSpeed') ?? 0;
       _isSwingOn = prefs.getBool('swing') ?? false;
       _isEcoOn = prefs.getBool('eco') ?? false;
+      _roomTemp = prefs.getString('room_temp') ?? '0.0';
+      _ambientTemp = prefs.getString('ambient_temp') ?? '0.0';
     });
   }
 
@@ -126,11 +210,22 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     await prefs.setInt('fanSpeed', _fanSpeed);
     await prefs.setBool('swing', _isSwingOn);
     await prefs.setBool('eco', _isEcoOn);
+    await prefs.setString('room_temp', _roomTemp);
+    await prefs.setString('ambient_temp', _ambientTemp);
   }
 
+  // UI BUILDING METHODS
   void _togglePower() {
     setState(() {
       _isPowerOn = !_isPowerOn;
+
+      mqttService.sendControlPacket(
+          power: _isPowerOn,
+          temperature: _temp,
+          mode: _selectedMode,
+          fan: _fanSpeed,
+          swing: _isSwingOn,
+          eco: _isEcoOn);
 
       if (!_isPowerOn) {
         // Store the current mode before powering off
@@ -150,8 +245,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       }
     });
 
-    final message = _isPowerOn ? 'POWER ON' : 'POWER OFF';
-    sendMqttMessage(message);
+    //final message = _isPowerOn ? 'POWER ON' : 'POWER OFF';
+    //sendMqttMessage(message);
     _saveSettings();
   }
 
@@ -169,6 +264,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _isSwingOn = !_isSwingOn;
     });
     _saveSettings();
+    mqttService.sendControlPacket(
+        power: _isPowerOn,
+        temperature: _temp,
+        mode: _selectedMode,
+        fan: _fanSpeed,
+        swing: _isSwingOn,
+        eco: _isEcoOn);
   }
 
   void _toggleEco() {
@@ -188,6 +290,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
 
     _saveSettings();
+    mqttService.sendControlPacket(
+        power: _isPowerOn,
+        temperature: _temp,
+        mode: _selectedMode,
+        fan: _fanSpeed,
+        swing: _isSwingOn,
+        eco: _isEcoOn);
   }
 
   void _selectMode(int modeIndex) {
@@ -204,6 +313,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     return GestureDetector(
       onTap: () {
         _cycleFanSpeed();
+        mqttService.sendControlPacket(
+            power: _isPowerOn,
+            temperature: _temp,
+            mode: _selectedMode,
+            fan: _fanSpeed,
+            swing: _isSwingOn,
+            eco: _isEcoOn);
       },
       child: Column(
         children: [
@@ -299,8 +415,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     children: [
                       Image.asset('assets/icons/ambient-temperature.png',
                           height: 30, width: 30), // Replace with your icon
-                      SizedBox(height: 4),
-                      Text('0.0',
+                      const SizedBox(height: 4),
+                      Text(_ambientTemp,
                           style: GoogleFonts.orbitron(
                               color: Colors.white, fontSize: 14)),
                     ],
@@ -309,8 +425,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     children: [
                       Image.asset('assets/icons/room-temperature.png',
                           height: 30, width: 30), // Replace with your icon
-                      SizedBox(height: 4),
-                      Text('0.0',
+                      const SizedBox(height: 4),
+                      Text(_roomTemp,
                           style: GoogleFonts.orbitron(
                               color: Colors.white, fontSize: 14)),
                     ],
@@ -327,18 +443,39 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     _temp = value;
                   });
                   _saveSettings();
+                  mqttService.sendControlPacket(
+                      power: _isPowerOn,
+                      temperature: _temp,
+                      mode: _selectedMode,
+                      fan: _fanSpeed,
+                      swing: _isSwingOn,
+                      eco: _isEcoOn);
                 },
                 onIncrement: () {
                   setState(() {
                     _temp = (_temp + 1).clamp(16, 30);
                   });
                   _saveSettings();
+                  mqttService.sendControlPacket(
+                      power: _isPowerOn,
+                      temperature: _temp,
+                      mode: _selectedMode,
+                      fan: _fanSpeed,
+                      swing: _isSwingOn,
+                      eco: _isEcoOn);
                 },
                 onDecrement: () {
                   setState(() {
                     _temp = (_temp - 1).clamp(16, 30);
                   });
                   _saveSettings();
+                  mqttService.sendControlPacket(
+                      power: _isPowerOn,
+                      temperature: _temp,
+                      mode: _selectedMode,
+                      fan: _fanSpeed,
+                      swing: _isSwingOn,
+                      eco: _isEcoOn);
                 },
               ),
               SizedBox(height: height * 0.02),
@@ -361,7 +498,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                       isSelected: _selectedMode == i && _isPowerOn,
                       activeIconPath: 'assets/icons/mode$i-active.png',
                       inactiveIconPath: 'assets/icons/mode$i-inactive.png',
-                      onTap: () => _selectMode(i),
+                      onTap: () {
+                        _selectMode(i);
+                        mqttService.sendControlPacket(
+                            power: _isPowerOn,
+                            temperature: _temp,
+                            mode: _selectedMode,
+                            fan: _fanSpeed,
+                            swing: _isSwingOn,
+                            eco: _isEcoOn);
+                      },
                     )
                 ],
               ),
@@ -372,18 +518,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 padding:
                     const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [Color(0xFF3E6AC3), Color(0xFF122E5E)]),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                       color: Colors.black, width: 1, style: BorderStyle.solid),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black,
                       blurRadius: 20,
-                      offset: const Offset(0, 5),
+                      offset: Offset(0, 5),
                     ),
                   ],
                 ),

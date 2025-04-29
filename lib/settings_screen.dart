@@ -11,7 +11,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF03112E),
+      backgroundColor: const Color(0xFF03112E),
       key: _scaffoldKey, // Assign the key to the Scaffold
       appBar: CustomAppBarWidget(
         onDrawerPressed: () {
@@ -34,7 +34,7 @@ class SettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PairingScreen()),
+                MaterialPageRoute(builder: (context) => PairingScreen()),
               );
             },
           ),

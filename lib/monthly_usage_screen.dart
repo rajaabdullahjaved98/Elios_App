@@ -5,7 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MonthlyUsageScreen extends StatefulWidget {
-  const MonthlyUsageScreen({Key? key}) : super(key: key);
+  const MonthlyUsageScreen({super.key});
 
   @override
   State<MonthlyUsageScreen> createState() => _MonthlyUsageScreenState();
@@ -32,13 +32,13 @@ class _MonthlyUsageScreenState extends State<MonthlyUsageScreen> {
       drawer: const CustomDrawer(),
       body: Column(
         children: [
-          Align(
+          const Align(
             alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: EdgeInsets.only(right: 16.0),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   LegendItem(color: Colors.blue, label: "Cost (Rs)"),
                   SizedBox(width: 8),
                   LegendItem(color: Colors.white, label: "Units (kWh)"),
@@ -87,8 +87,8 @@ class _MonthlyUsageScreenState extends State<MonthlyUsageScreen> {
                   ),
                   barGroups: _buildBarGroups(),
                   titlesData: FlTitlesData(
-                    leftTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -120,12 +120,12 @@ class _MonthlyUsageScreenState extends State<MonthlyUsageScreen> {
                         interval: 1,
                       ),
                     ),
-                    topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
-                  gridData: FlGridData(show: true),
+                  gridData: const FlGridData(show: true),
                   borderData: FlBorderData(show: false),
                 ),
               ),
@@ -137,15 +137,15 @@ class _MonthlyUsageScreenState extends State<MonthlyUsageScreen> {
   }
 
   List<BarChartGroupData> _buildBarGroups() {
-    final double maxUnits = monthlyUnits.reduce((a, b) => a > b ? a : b);
-    final double maxCost = maxUnits * ratePerUnit;
+    //final double maxUnits = monthlyUnits.reduce((a, b) => a > b ? a : b);
+    //final double maxCost = maxUnits * ratePerUnit;
 
     const double maxAllowedHeight = 25; // same as BarChartData maxY
     const double minVisibleHeight = 1.5;
 
     // Scale to fit maxUnits = 3000, maxCost = 180000
-    final double unitScaleFactor = maxAllowedHeight / 3000;
-    final double costScaleFactor = maxAllowedHeight / 180000;
+    const double unitScaleFactor = maxAllowedHeight / 3000;
+    const double costScaleFactor = maxAllowedHeight / 180000;
 
     return List.generate(12, (index) {
       final double units = monthlyUnits[index];
