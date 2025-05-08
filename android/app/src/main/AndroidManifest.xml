@@ -10,6 +10,7 @@
         android:label="Elios"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
+        android:usesCleartextTraffic="true"
     >
 
         <uses-library android:name="org.apache.http.legacy" android:required="false"/>

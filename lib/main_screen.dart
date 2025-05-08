@@ -1,3 +1,4 @@
+// DEPENDENCIES
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:typed_data/typed_data.dart';
@@ -10,20 +11,25 @@ import 'package:elios/widgets/mode_icon.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+// DEPENDENCIES
 
+// MAIN SCREEN STATEFUL WIDGET CLASS
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
+//MAIN SCREEN STATEFUL WIDGET CLASS
 
+// MQTT SERVICE CLASS
 class MQTTService {
   final MqttClient client =
       MqttServerClient('192.168.18.104', 'flutter_client');
   final String topic = 'esp32/ac/state';
   final String publishTopic = 'esp32/ac/command';
 
+  // CONSTRUCTOR
   MQTTService() {
     client.logging(on: true);
     client.keepAlivePeriod = 60;
@@ -32,6 +38,8 @@ class MQTTService {
     client.onSubscribed = _onSubscribed;
   }
 
+  // CONNECT TO MQTT SERVER & SUBSCRIBE TO A TOPIC
+  // PARSE THE PAYLOAD IF DATA IS RECEIVED
   Future<void> connect() async {
     try {
       await client.connect();
@@ -53,24 +61,29 @@ class MQTTService {
     }
   }
 
+  // IF CLIENT IS CONNECTED TO A SERVER
   void _onConnected() {
     //print('MQTT client connected');
   }
 
+  // IF CLIENT IS DISCONNECTED FROM A SERVER
   void _onDisconnected() {
     //print('MQTT client disconnected');
   }
 
+  // IF CLIENT IS SUBSCRIBED TO A TOPIC
   void _onSubscribed(String topic) {
     //print('Subscribed to topic: $topic');
   }
 
   Function(Map<String, dynamic>)? _onDataReceived;
 
+  // CALLBACK FUNCTION FOR RECEIVING DATA
   void onMessageReceived(Function(Map<String, dynamic>) callback) {
     _onDataReceived = callback;
   }
 
+  // FUNCTION TO PARSE THE INCOMING PAYLOAD
   Map<String, dynamic> _parsePayload(Uint8List payload) {
     int roomTempRaw = (payload[6] << 8) | payload[7];
     double roomTemp = roomTempRaw / 10.0;
@@ -88,6 +101,7 @@ class MQTTService {
     };
   }
 
+  // FUNCTION TO PUBLISH CONTROL DATA TO THE SERVER
   void sendControlPacket({
     required bool power,
     required int temperature,
@@ -117,6 +131,7 @@ class MQTTService {
   }
 }
 
+// MAIN SCREEN CLASS IMPLEMENTATION
 class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _temp = 16;
@@ -129,8 +144,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   String _ambientTemp = '0.0';
   int _lastSelectedMode = -1;
 
+  // INSTANTIATE MQTT SERVICE CLASS
   final mqttService = MQTTService();
 
+  // ICON ANIMATION CONTROLLERS
   late AnimationController _fanRotationController;
   late AnimationController _swingWiggleController;
   late AnimationController _ecoGlowController;
@@ -143,6 +160,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
+    // CONNECT AND RECEIVE AC DATA FROM SERVER
     mqttService.connect();
     mqttService.onMessageReceived(_onACStateReceived);
 
@@ -161,9 +179,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     _ecoAnimation =
         Tween<double>(begin: 0.7, end: 1.0).animate(_ecoGlowController);
 
+    // LOAD MAIN SCREEN WIDGETS STATE SAVED IN SHARED PREFERENCES
     _loadSettings();
   }
 
+  // MAP LIVE DATA TO LOCAL VARIABLES
   void _onACStateReceived(Map<String, dynamic> acState) {
     //print("AC State Received: $acState");
     setState(() {
@@ -186,6 +206,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // FUNCTION TO LOAD WIDGETS STATE FROM SHARED PREFERENCES
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -201,6 +222,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     });
   }
 
+  // FUNCTION TO SAVE WIDGETS STATE TO SHARED PREFERENCES
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('temp', _temp);
@@ -215,10 +237,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   // UI BUILDING METHODS
+  // TOGGLE POWER BUTTON
   void _togglePower() {
     setState(() {
       _isPowerOn = !_isPowerOn;
 
+      // PUBLISH DATA TO SERVER
       mqttService.sendControlPacket(
           power: _isPowerOn,
           temperature: _temp,
@@ -228,7 +252,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           eco: _isEcoOn);
 
       if (!_isPowerOn) {
-        // Store the current mode before powering off
+        // STORE THE CURRENT OPERATION MODE BEFORE POWERING OFF
         _lastSelectedMode = _selectedMode;
         _selectedMode = -1;
       } else {
@@ -247,9 +271,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
     //final message = _isPowerOn ? 'POWER ON' : 'POWER OFF';
     //sendMqttMessage(message);
+    // SAVE TO SHARED PREFERNCES
     _saveSettings();
   }
 
+  // FUNCTION TO CYCLE THROUGH DIFFERENT FAN SPEEDS
   void _cycleFanSpeed() {
     if (!_isPowerOn) return;
     setState(() {
@@ -258,6 +284,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     _saveSettings();
   }
 
+  // FUNCTION TO TOGGLE SWING
   void _toggleSwing() {
     if (!_isPowerOn) return;
     setState(() {
@@ -273,6 +300,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         eco: _isEcoOn);
   }
 
+  // FUNCTION TO TOGGLE ECO MODE
   void _toggleEco() {
     if (!_isPowerOn) return;
 
@@ -299,6 +327,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         eco: _isEcoOn);
   }
 
+  // FUNCTION TO SELECT AND SAVE THE OPERATION MODE
   void _selectMode(int modeIndex) {
     if (_isPowerOn && (!_isEcoOn || modeIndex == 0 || modeIndex == 2)) {
       setState(() {
@@ -308,6 +337,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
+  // BUILD FAN SPEED ICON
   Widget _buildFanSpeedIcon() {
     final rotationSpeed = (_fanSpeed / 4).clamp(0.0, 1.0);
     return GestureDetector(
@@ -337,6 +367,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
+  // BUILD SWING ICON
   Widget _buildSwingIcon() {
     return GestureDetector(
       onTap: _toggleSwing,
@@ -359,6 +390,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
+  // BUILD ECO MODE ICON
   Widget _buildEcoIcon() {
     return GestureDetector(
       onTap: _toggleEco,
@@ -381,6 +413,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
+  // MAIN UI BUILD FUNCTION
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
