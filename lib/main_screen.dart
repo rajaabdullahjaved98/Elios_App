@@ -1,4 +1,7 @@
 // DEPENDENCIES
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:typed_data/typed_data.dart';
@@ -11,6 +14,8 @@ import 'package:elios/widgets/mode_icon.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:elios/services/websocket_service.dart';
+import 'package:provider/provider.dart';
 // DEPENDENCIES
 
 // MAIN SCREEN STATEFUL WIDGET CLASS
@@ -25,9 +30,15 @@ class MainScreen extends StatefulWidget {
 // MQTT SERVICE CLASS
 class MQTTService {
   final MqttClient client =
-      MqttServerClient('192.168.18.104', 'flutter_client');
-  final String topic = 'esp32/ac/state';
-  final String publishTopic = 'esp32/ac/command';
+      MqttServerClient('192.168.18.104', 'flutter_client_01');
+  final String topic = 'esp32-1/test/state';
+  final String publishTopic = 'esp32-1/ac/command';
+
+  WebSocketService? _webSocketService;
+
+  void attachWebSocket(WebSocketService ws) {
+    _webSocketService = ws;
+  }
 
   // CONSTRUCTOR
   MQTTService() {
@@ -50,10 +61,8 @@ class MQTTService {
         final recMessage = messages[0].payload as MqttPublishMessage;
         final Uint8Buffer buffer = recMessage.payload.message;
         final Uint8List payload = Uint8List.fromList(buffer);
-        //print('RECEIVED DATA: $payload');
-        if (payload.length == 10) {
-          _onDataReceived?.call(_parsePayload(payload));
-        }
+        print('RECEIVED DATA: $payload');
+        _onDataReceived?.call(_parsePayload(payload));
       });
     } catch (e) {
       //print('Error: $e');
@@ -85,19 +94,46 @@ class MQTTService {
 
   // FUNCTION TO PARSE THE INCOMING PAYLOAD
   Map<String, dynamic> _parsePayload(Uint8List payload) {
-    int roomTempRaw = (payload[6] << 8) | payload[7];
-    double roomTemp = roomTempRaw / 10.0;
-    int ambientTempRaw = (payload[8] << 8) | payload[9];
-    double ambientTemp = ambientTempRaw / 10.0;
+    // Extract bits from Ble_8Bit1 (payload[8])
+    bool swing = (payload[8] & 0x40) != 0; // Bit 6
+    int fan = (payload[8] >> 3) & 0x07; // Bits 3,4,5
+    bool power = (payload[8] & 0x80) != 0; // Bit 7
+
+    // Extract bits from Ble_8Bit2 (payload[9])
+    bool eco = (payload[9] & 0x20) != 0; // Bit 5
+    int mode = (payload[9] >> 6) & 0x03; // Bits 6,7
+
+    // Extract Set_Temp (4-byte float at payload[15] to payload[18])
+    ByteData setTempData = ByteData.sublistView(payload, 15, 19);
+    double setTemp = setTempData.getFloat32(0, Endian.little);
+    int setTempInt = setTemp.toInt();
+
+    // Extract Room_Sensor (4-byte float at payload[23] to payload[26])
+    ByteData roomTempData = ByteData.sublistView(payload, 23, 27);
+    double roomTemp = roomTempData.getFloat32(0, Endian.little);
+
+    // Extract ODU_Ambient_Temp (4-byte float at payload[39] to payload[42])
+    ByteData ambientTempData = ByteData.sublistView(payload, 39, 43);
+    double ambientTemp = ambientTempData.getFloat32(0, Endian.little);
+
+    print("Power: $power");
+    print("Set Temp: $setTempInt");
+    print("Mode: $mode");
+    print("Fan: $fan");
+    print("Swing: $swing");
+    print("Eco: $eco");
+    print("Room Temp: $roomTemp");
+    print("Amb Temp: $ambientTemp");
+
     return {
-      'power': payload[0] == 1,
-      'temperature': payload[1],
-      'mode': payload[2],
-      'fan': payload[3],
-      'swing': payload[4] == 1,
-      'eco': payload[5] == 1,
-      'room_temp': roomTemp,
-      'ambient_temp': ambientTemp,
+      'power': power,
+      'fan': fan,
+      'swing': swing,
+      'eco': eco,
+      'mode': mode,
+      'temperature': setTempInt,
+      'room_temp': roomTemp.toStringAsFixed(1),
+      'ambient_temp': ambientTemp.toStringAsFixed(1),
     };
   }
 
@@ -128,6 +164,18 @@ class MQTTService {
     } else {
       //print('MQTT client not connected. Cannot send data');
     }
+
+    if (_webSocketService?.isConnected ?? false) {
+      Map<String, dynamic> json = {
+        'powerOn': power,
+        'temp': temperature,
+        'fanSpeed': fan,
+        'mode': mode,
+        'swing': swing,
+        'eco': eco,
+      };
+      _webSocketService?.send(jsonEncode(json));
+    }
   }
 }
 
@@ -143,6 +191,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   String _roomTemp = '0.0';
   String _ambientTemp = '0.0';
   int _lastSelectedMode = -1;
+  List<int>? _binaryMessage;
 
   // INSTANTIATE MQTT SERVICE CLASS
   final mqttService = MQTTService();
@@ -156,13 +205,42 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   final List<String> fanSpeedLabels = ['Off', 'Low', 'Medium', 'High', 'Auto'];
 
+  bool _isInit = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInit) {
+      final ws = Provider.of<WebSocketService>(context);
+      ws.connect('ws://192.168.4.1/ws');
+      mqttService.attachWebSocket(ws);
+      mqttService.connect();
+      mqttService.onMessageReceived(_onACStateReceived);
+      ws.onBinaryDataReceived = (Uint8List data) {
+        if (data.length == 125) {
+          final parsed = mqttService._parsePayload(data);
+          setState(() {
+            _isPowerOn = parsed['power'];
+            _temp = parsed['temperature'];
+            _selectedMode = parsed['mode'];
+            _fanSpeed = parsed['fan'];
+            _isSwingOn = parsed['swing'];
+            _isEcoOn = parsed['eco'];
+            _roomTemp = parsed['room_temp'];
+            _ambientTemp = parsed['ambient_temp'];
+          });
+          debugPrint("Received 109 Bytes Through WebSocket: $_binaryMessage");
+        }
+      };
+      _isInit = true;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     // CONNECT AND RECEIVE AC DATA FROM SERVER
-    mqttService.connect();
-    mqttService.onMessageReceived(_onACStateReceived);
 
     _fanRotationController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 3000))
@@ -185,14 +263,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   // MAP LIVE DATA TO LOCAL VARIABLES
   void _onACStateReceived(Map<String, dynamic> acState) {
-    //print("AC State Received: $acState");
     setState(() {
       _isPowerOn = acState['power'];
-      _temp = acState['temperature'];
-      _selectedMode = acState['mode'];
       _fanSpeed = acState['fan'];
       _isSwingOn = acState['swing'];
       _isEcoOn = acState['eco'];
+      _selectedMode = acState['mode'];
+      _temp = acState['temperature'];
       _roomTemp = acState['room_temp'].toString();
       _ambientTemp = acState['ambient_temp'].toString();
     });

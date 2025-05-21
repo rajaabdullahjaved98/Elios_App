@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'main_screen.dart'; // Import the HomeScreen
+import 'main_screen.dart';
+import 'package:provider/provider.dart';
+import 'pairing_screen.dart';
+import 'package:elios/services/websocket_service.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(ChangeNotifierProvider(
+    create: (_) => WebSocketService(),
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
