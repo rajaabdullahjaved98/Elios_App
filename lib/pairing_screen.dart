@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:elios/widgets/custom_app_bar_widget.dart';
+import 'package:elios/widgets/custom_drawer.dart';
 import 'package:elios/services/websocket_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -84,8 +85,9 @@ class _PairingScreenState extends State<PairingScreen> {
         onDrawerPressed: () => _scaffoldKey.currentState?.openDrawer(),
         onToolbarPressed: () {},
         title: 'Pairing Screen',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
+      drawer: const CustomDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

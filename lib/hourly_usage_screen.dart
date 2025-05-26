@@ -27,7 +27,7 @@ class _HourlyUsageScreenState extends State<HourlyUsageScreen> {
         onDrawerPressed: () => _scaffoldKey.currentState?.openDrawer(),
         onToolbarPressed: () {},
         title: 'Hourly Usage',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: Column(

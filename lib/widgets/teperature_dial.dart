@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:math';
 import 'arc_painter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'dart:math';
 
 class TemperatureDial extends StatefulWidget {
   final int temperature;
@@ -9,12 +10,15 @@ class TemperatureDial extends StatefulWidget {
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
 
+  final String mode; // 'Temperature' or 'Price'
+
   const TemperatureDial({
     super.key,
     required this.temperature,
     required this.onTempChanged,
     required this.onIncrement,
     required this.onDecrement,
+    required this.mode,
   });
 
   @override
@@ -22,9 +26,11 @@ class TemperatureDial extends StatefulWidget {
 }
 
 class _TemperatureDialState extends State<TemperatureDial> {
-  late Offset center;
-  late double radius;
   double currentAngle = 0;
+
+  int get minValue => widget.mode == 'Price' ? 20 : 16;
+  int get maxValue => widget.mode == 'Price' ? 100 : 30;
+  String get label => widget.mode == 'Price' ? 'Rupees' : 'Celsius';
 
   @override
   Widget build(BuildContext context) {
@@ -32,18 +38,15 @@ class _TemperatureDialState extends State<TemperatureDial> {
       onPanUpdate: _handlePan,
       onPanEnd: _handlePanEnd,
       child: SizedBox(
-        height: 300,
+        height: 340,
         width: 400,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // Arc background
             CustomPaint(
               size: const Size(280, 280),
               painter: ArcPainter(),
             ),
-
-            // Inner circle
             Container(
               height: 200,
               width: 200,
@@ -67,16 +70,12 @@ class _TemperatureDialState extends State<TemperatureDial> {
                 ),
               ),
             ),
-
-            // Thumb (circle on arc)
             Positioned(
               child: CustomPaint(
                 size: const Size(280, 280),
-                painter: _ThumbPainter(widget.temperature),
+                painter: _ThumbPainter(widget.temperature, minValue, maxValue),
               ),
             ),
-
-            // Temperature Text
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -89,7 +88,7 @@ class _TemperatureDialState extends State<TemperatureDial> {
                   ),
                 ),
                 Text(
-                  'Celsius',
+                  label,
                   style: GoogleFonts.orbitron(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -98,26 +97,22 @@ class _TemperatureDialState extends State<TemperatureDial> {
                 ),
               ],
             ),
-
-            // Minus button (Disabled if temperature is 16)
             Positioned(
               left: 70,
               top: 250,
               child: buildControlButton(
                 Icons.remove,
                 widget.onDecrement,
-                widget.temperature == 16,
+                widget.temperature == minValue,
               ),
             ),
-
-            // Plus button (Disabled if temperature is 30)
             Positioned(
               right: 70,
               top: 250,
               child: buildControlButton(
                 Icons.add,
                 widget.onIncrement,
-                widget.temperature == 30,
+                widget.temperature == maxValue,
               ),
             ),
           ],
@@ -129,14 +124,13 @@ class _TemperatureDialState extends State<TemperatureDial> {
   void _handlePan(DragUpdateDetails details) {
     RenderBox box = context.findRenderObject() as RenderBox;
     Offset local = box.globalToLocal(details.globalPosition);
-    const Offset center = Offset(200, 200); // Center of dial
+    const Offset center = Offset(200, 200);
 
     double dx = local.dx - center.dx;
     double dy = local.dy - center.dy;
     double angleRad = atan2(dy, dx);
     double angleDeg = angleRad * 180 / pi;
 
-    // Wrap angle to 0–360
     if (angleDeg < 0) angleDeg += 360;
 
     const double arcStartDeg = 210;
@@ -145,24 +139,17 @@ class _TemperatureDialState extends State<TemperatureDial> {
 
     if (angleDeg < arcStartDeg || angleDeg > arcEndDeg) return;
 
-    // Update current angle and calculate temperature
     setState(() {
       currentAngle = angleDeg;
     });
 
     double t = (currentAngle - arcStartDeg) / arcSweepDeg;
-
-    const int minTemp = 16;
-    const int maxTemp = 30;
-
-    int newTemp = minTemp + (t * (maxTemp - minTemp)).round();
+    int newTemp = minValue + (t * (maxValue - minValue)).round();
 
     widget.onTempChanged(newTemp);
   }
 
-  void _handlePanEnd(DragEndDetails details) {
-    // Optional: You can perform any clean-up or final adjustments if needed after the drag ends.
-  }
+  void _handlePanEnd(DragEndDetails details) {}
 
   Widget buildControlButton(
       IconData icon, VoidCallback onPressed, bool isDisabled) {
@@ -205,13 +192,12 @@ class _TemperatureDialState extends State<TemperatureDial> {
   }
 }
 
-// Painter for drawing the seekbar thumb (circle on arc)
 class _ThumbPainter extends CustomPainter {
   final int temperature;
-  static const int minTemp = 16;
-  static const int maxTemp = 30;
+  final int minTemp;
+  final int maxTemp;
 
-  _ThumbPainter(this.temperature);
+  _ThumbPainter(this.temperature, this.minTemp, this.maxTemp);
 
   @override
   void paint(Canvas canvas, Size size) {

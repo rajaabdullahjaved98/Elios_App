@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:elios/main.dart';
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'package:typed_data/typed_data.dart';
@@ -16,6 +17,8 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:elios/services/websocket_service.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/widgets.dart'; // Required for RouteAware and PageRoute
+
 // DEPENDENCIES
 
 // MAIN SCREEN STATEFUL WIDGET CLASS
@@ -180,7 +183,8 @@ class MQTTService {
 }
 
 // MAIN SCREEN CLASS IMPLEMENTATION
-class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
+class _MainScreenState extends State<MainScreen>
+    with TickerProviderStateMixin, RouteAware {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _temp = 16;
   int _selectedMode = -1;
@@ -192,6 +196,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   String _ambientTemp = '0.0';
   int _lastSelectedMode = -1;
   List<int>? _binaryMessage;
+  String _selectedDisplayMode = 'Temperature';
 
   // INSTANTIATE MQTT SERVICE CLASS
   final mqttService = MQTTService();
@@ -210,6 +215,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+    _loadSettings();
     if (!_isInit) {
       final ws = Provider.of<WebSocketService>(context);
       ws.connect('ws://192.168.4.1/ws');
@@ -277,10 +287,17 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _fanRotationController.dispose();
     _swingWiggleController.dispose();
     _ecoGlowController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Called when user returns to this screen from another
+    _loadSettings(); // Reload saved mode
   }
 
   // FUNCTION TO LOAD WIDGETS STATE FROM SHARED PREFERENCES
@@ -296,6 +313,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _isEcoOn = prefs.getBool('eco') ?? false;
       _roomTemp = prefs.getString('room_temp') ?? '0.0';
       _ambientTemp = prefs.getString('ambient_temp') ?? '0.0';
+      _selectedDisplayMode = prefs.getString('selectedMode') ?? 'Temperature';
+      if (_selectedDisplayMode == 'Price') {
+        _temp = prefs.getInt('comfortTemp') ?? 24;
+      } else {
+        _temp = _temp.clamp(16, 30);
+      }
     });
   }
 
@@ -311,6 +334,34 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     await prefs.setBool('eco', _isEcoOn);
     await prefs.setString('room_temp', _roomTemp);
     await prefs.setString('ambient_temp', _ambientTemp);
+    await prefs.setString('selectedMode', _selectedDisplayMode);
+  }
+
+  void increment() {
+    final max = _selectedDisplayMode == 'Price' ? 100 : 30;
+    if (_temp < max) {
+      setState(() {
+        _temp++;
+      });
+    }
+  }
+
+  void decrement() {
+    final min = _selectedDisplayMode == 'Price' ? 20 : 16;
+    if (_temp > min) {
+      setState(() {
+        _temp--;
+      });
+    }
+  }
+
+  void _onModeChanged(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedMode', mode);
+    setState(() {
+      _selectedDisplayMode = mode;
+      // optionally reset temperature or clamp to new mode range
+    });
   }
 
   // UI BUILDING METHODS
@@ -507,7 +558,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         },
         onToolbarPressed: () {},
         title: 'Main Screen',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: Center(
@@ -543,14 +594,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              SizedBox(height: height * 0.02),
+              SizedBox(height: height * 0.00),
 
               //TEMPERATUE DIAL
               TemperatureDial(
                 temperature: _temp,
-                onTempChanged: (value) {
+                onTempChanged: (newTemp) {
                   setState(() {
-                    _temp = value;
+                    _temp = newTemp;
                   });
                   _saveSettings();
                   mqttService.sendControlPacket(
@@ -562,9 +613,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                       eco: _isEcoOn);
                 },
                 onIncrement: () {
-                  setState(() {
-                    _temp = (_temp + 1).clamp(16, 30);
-                  });
+                  increment();
                   _saveSettings();
                   mqttService.sendControlPacket(
                       power: _isPowerOn,
@@ -575,9 +624,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                       eco: _isEcoOn);
                 },
                 onDecrement: () {
-                  setState(() {
-                    _temp = (_temp - 1).clamp(16, 30);
-                  });
+                  decrement();
                   _saveSettings();
                   mqttService.sendControlPacket(
                       power: _isPowerOn,
@@ -587,8 +634,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                       swing: _isSwingOn,
                       eco: _isEcoOn);
                 },
+                mode: _selectedDisplayMode,
               ),
-              SizedBox(height: height * 0.02),
+              SizedBox(height: height * 0.00),
 
               //MODES SECTION
               Text('Modes',
@@ -621,7 +669,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                     )
                 ],
               ),
-              SizedBox(height: height * 0.05),
+              SizedBox(height: height * 0.01),
 
               // POWER, FAN, SWING, AND ECO SECTION
               Container(

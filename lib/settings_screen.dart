@@ -1,8 +1,13 @@
+import 'package:elios/date_time_screen.dart';
+import 'package:elios/meter_type_screen.dart';
+import 'package:elios/meter_readings_screen.dart';
+import 'package:elios/mode_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:elios/widgets/custom_app_bar_widget.dart';
 import 'package:elios/widgets/custom_drawer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:elios/pairing_screen.dart';
+import 'package:elios/about_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   // Global key to access Scaffold state
@@ -22,7 +27,7 @@ class SettingsScreen extends StatelessWidget {
           // Handle toolbar actions here if necessary
         },
         title: 'Settings',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: ListView(
@@ -38,23 +43,61 @@ class SettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SettingsTile(
-              imagePath: 'assets/icons/dollar.png',
-              title: "Temperature or Price Mode"),
-          const SettingsTile(
-              imagePath: 'assets/icons/calendar.png', title: "Date and Time"),
+          SettingsTile(
+            imagePath: 'assets/icons/dollar.png',
+            title: "Temperature or Price Mode",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => ModeScreen()),
+              );
+            },
+          ),
+          SettingsTile(
+            imagePath: 'assets/icons/calendar.png',
+            title: "Date and Time",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DateTimeScreen()),
+              );
+            },
+          ),
           const SectionHeader(title: "Meter Settings"),
-          const SettingsTile(
-              imagePath: 'assets/icons/electric-meter.png',
-              title: "Meter Type"),
-          const SettingsTile(
-              imagePath: 'assets/icons/info.png', title: "Meter Readings"),
+          SettingsTile(
+            imagePath: 'assets/icons/electric-meter.png',
+            title: "Meter Type",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => MeterTypeScreen()),
+              );
+            },
+          ),
+          SettingsTile(
+            imagePath: 'assets/icons/info.png',
+            title: "Meter Readings",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => MeterReadingsScreen()),
+              );
+            },
+          ),
           const SettingsTile(
               imagePath: 'assets/icons/circular.png',
               title: "Reset Usage History"),
           const SectionHeader(title: "About"),
-          const SettingsTile(
-              imagePath: 'assets/icons/information-button.png', title: "About")
+          SettingsTile(
+            imagePath: 'assets/icons/information-button.png',
+            title: "About",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AboutScreen()),
+              );
+            },
+          )
         ],
       ),
     );

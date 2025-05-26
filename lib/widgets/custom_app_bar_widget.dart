@@ -14,7 +14,7 @@ class CustomAppBarWidget extends StatelessWidget
     required this.onDrawerPressed,
     required this.onToolbarPressed,
     required this.title,
-    this.logoPath = 'assets/images/elios-logo.png',
+    this.logoPath = 'assets/images/sabro_white.png',
   }) : super(key: key);
 
   @override
@@ -22,7 +22,7 @@ class CustomAppBarWidget extends StatelessWidget
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF03112E), Color(0xFF3E6AC3)],
+          colors: [Color(0xFF03112E), Color(0xFF0666B2)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -56,13 +56,20 @@ class CustomAppBarWidget extends StatelessWidget
               ),
               Column(
                 children: [
-                  Image.asset(
-                    logoPath,
-                    height: 60,
-                    width: 120,
-                    fit: BoxFit.fitWidth,
-                    color: Colors.white,
-                  ),
+                  // Image.asset(
+                  // logoPath,
+                  // height: 62,
+                  // width: 160,
+                  // fit: BoxFit.fill,
+                  //color: Colors.white,
+                  // ),
+                  Text(
+                    'Sabro',
+                    style: GoogleFonts.orbitron(
+                        fontSize: 35,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white),
+                  )
                 ],
               ),
               IconButton(

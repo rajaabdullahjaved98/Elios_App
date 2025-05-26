@@ -27,7 +27,7 @@ class _MonthlyUsageScreenState extends State<MonthlyUsageScreen> {
         onDrawerPressed: () => _scaffoldKey.currentState?.openDrawer(),
         onToolbarPressed: () {},
         title: 'Monthly Usage',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: Column(

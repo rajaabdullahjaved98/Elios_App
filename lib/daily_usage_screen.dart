@@ -27,7 +27,7 @@ class _DailyUsageScreenState extends State<DailyUsageScreen> {
         onDrawerPressed: () => _scaffoldKey.currentState?.openDrawer(),
         onToolbarPressed: () {},
         title: 'Daily Usage',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: Column(

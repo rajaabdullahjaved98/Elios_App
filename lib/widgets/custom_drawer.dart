@@ -19,7 +19,7 @@ class CustomDrawer extends StatelessWidget {
             height: 120,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF03112E), Color(0xFF3E6AC3)],
+                colors: [Color(0xFF0666B2), Color(0xFF0666B2)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -27,12 +27,12 @@ class CustomDrawer extends StatelessWidget {
             child: Row(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(10.0),
                   child: Image.asset(
-                    'assets/images/elios-logo.png',
-                    width: 120,
-                    height: 60,
-                    fit: BoxFit.cover,
+                    'assets/images/sabro_white.png',
+                    width: 130,
+                    height: 70,
+                    fit: BoxFit.fill,
                   ),
                 )
               ],

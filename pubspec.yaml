@@ -105,12 +105,12 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/images/600x600.png"
+  image_path: "assets/images/sabro_white.png"
   min_sdk_android: 21
 
 flutter_native_splash:
-  color: "#03112E"
-  image: "assets/images/elios-logo.png"
+  color: "#0666B2"
+  image: "assets/images/sabro_round(1).png"
   android: true
   ios: true
 

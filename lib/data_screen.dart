@@ -206,7 +206,7 @@ class _DataScreenState extends State<DataScreen> {
         },
         onToolbarPressed: () {},
         title: 'Data Screen',
-        logoPath: 'assets/images/elios-logo.png',
+        logoPath: 'assets/images/sabro_white.png',
       ),
       drawer: const CustomDrawer(),
       body: SingleChildScrollView(
